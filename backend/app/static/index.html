@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AstraBot — натальная карта</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root { --bg:#15131f; --card:#211d30; --accent:#a78bfa; --text:#e8e6f0; --muted:#9b97ad; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+           background: radial-gradient(1200px 600px at 50% -10%, #2a2440, var(--bg)); color: var(--text); }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { font-weight: 700; letter-spacing: .5px; margin-bottom: 4px; }
+    .sub { color: var(--muted); margin-bottom: 24px; }
+    .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 18px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+    label { display:block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+    input { width:100%; padding: 11px 12px; border-radius: 10px; border:1px solid #3a3550;
+            background:#1a1726; color:var(--text); font-size:15px; }
+    .row { display:flex; gap:12px; } .row > div { flex:1; }
+    button { margin-top:16px; width:100%; padding: 13px; border:none; border-radius: 10px;
+             background: linear-gradient(90deg,#8b5cf6,#a78bfa); color:#fff; font-size:16px;
+             font-weight:600; cursor:pointer; }
+    button:disabled { opacity:.5; cursor:default; }
+    .err { color:#ff8a80; margin-top:10px; font-size:14px; }
+    input.fld.ok { border-color:#4caf50; box-shadow:0 0 0 1px #2e7d32 inset; }
+    input.fld.bad { border-color:#ff8a80; box-shadow:0 0 0 1px #c62828 inset; }
+    .hint { font-size:12px; margin-top:4px; }
+    .hint.bad { color:#ff8a80; }
+    .sugwrap { position:relative; }
+    .sugbox { position:absolute; top:100%; left:0; right:0; z-index:20; margin-top:4px;
+              background:#221d33; border:1px solid #3a3550; border-radius:10px;
+              box-shadow:0 12px 32px rgba(0,0,0,.45); max-height:240px; overflow-y:auto; }
+    .sugitem { padding:9px 12px; font-size:14px; cursor:pointer;
+               display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .sugitem:hover, .sugitem.active { background:#2f2a45; color:var(--accent); }
+    .sugcountry { font-size:12px; color:var(--muted); white-space:nowrap; }
+    .privacy { font-size:12px; color:var(--muted); margin-top:14px; line-height:1.5; }
+    img.chart { width:100%; border-radius:12px; background:#1b1726; display:block; }
+    .summary { font-size:16px; line-height:1.6; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:8px; margin-top:12px; }
+    .pos { background:#1a1726; border-radius:10px; padding:10px 12px; font-size:14px; }
+    .pos b { color: var(--accent); }
+    .pglyph { color: var(--accent); font-size:17px; }
+    .sec h3 { color: var(--accent); margin: 14px 0 6px; font-size:15px; }
+    .sec p { margin:0; line-height:1.6; }
+    ul.aspects { padding-left: 18px; line-height:1.6; }
+    ul.aspects li { margin-bottom: 8px; }
+    .badge { display:inline-block; background:#2f2a45; color:var(--accent); border-radius:8px;
+             padding:2px 8px; font-size:12px; margin-left:8px; }
+    .notice { background:#2a2440; color:#cdb8ff; font-size:14px; line-height:1.5; }
+    /* загрузка */
+    .loader { display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px 0 6px; }
+    .ring { width:46px; height:46px; border-radius:50%; border:3px solid #3a3550;
+            border-top-color:var(--accent); animation:spin .8s linear infinite; }
+    .loadtext { color:var(--muted); font-size:14px; animation:pulse 1.4s ease-in-out infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:1} }
+    /* переключатель уровня */
+    .seg { display:flex; gap:8px; }
+    .seg button { margin-top:0; background:#1a1726; border:1px solid #3a3550; color:var(--muted);
+                  font-weight:500; font-size:14px; padding:10px; }
+    .seg button.on { background:linear-gradient(90deg,#8b5cf6,#a78bfa); color:#fff; border-color:transparent; }
+    /* чекбокс */
+    .chk { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted);
+           margin-top:8px; cursor:pointer; }
+    .chk input { width:auto; }
+    .fld:disabled { opacity:.4; }
+    /* таблица аспектов */
+    .asp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; margin-top:12px; }
+    .asp-row { display:flex; align-items:center; gap:8px; background:#1a1726; border-radius:10px;
+               padding:8px 12px; font-size:13px; border-left:3px solid var(--muted); }
+    .asp-sym { font-size:15px; }
+    .asp-names { flex:1; }
+    .asp-orb { color:var(--muted); font-size:12px; }
+    .h-harmonious { border-left-color:#5fd0c4; }
+    .h-tense { border-left-color:#ef6f6f; }
+    .h-neutral { border-left-color:#b8a6e8; }
+    /* совместимость */
+    .overall { text-align:center; margin-bottom:18px; }
+    .overall-num { font-size:42px; font-weight:700; color:var(--accent); line-height:1; }
+    .stars { color:#ffd166; font-size:22px; letter-spacing:2px; margin-top:4px; }
+    .sphere { margin-bottom:14px; }
+    .sphere-head { display:flex; justify-content:space-between; font-size:14px; margin-bottom:5px; }
+    .sphere-head span { color:var(--muted); }
+    .cbar { height:9px; background:#1a1726; border-radius:6px; overflow:hidden; }
+    .cfill { height:100%; background:linear-gradient(90deg,#8b5cf6,#5fd0c4); border-radius:6px; }
+    .sphere-text { font-size:13px; color:var(--muted); margin-top:5px; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
+
+    // --- Маски ввода: точки и двоеточие подставляются сами ---
+    function maskDate(v) {
+      const d = v.replace(/\D/g, "").slice(0, 8);          // только цифры, максимум 8
+      const out = [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)];
+      return out.filter(Boolean).join(".");                // ДД.ММ.ГГГГ
+    }
+    function maskTime(v) {
+      const d = v.replace(/\D/g, "").slice(0, 4);          // только цифры, максимум 4
+      return d.length <= 2 ? d : d.slice(0, 2) + ":" + d.slice(2, 4); // ЧЧ:ММ
+    }
+
+    // --- Валидация (та же логика, что на бэке) ---
+    function dateValidity(v) {
+      if (v === "") return null;                           // пусто — ещё не оцениваем
+      const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v);
+      if (!m) return { ok: false, msg: "Формат: ДД.ММ.ГГГГ" };
+      const [, dd, mm, yyyy] = m.map(Number);
+      const dt = new Date(yyyy, mm - 1, dd);
+      if (dt.getFullYear() !== yyyy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd)
+        return { ok: false, msg: "Такой даты не существует" };
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (dt > today) return { ok: false, msg: "Дата рождения не может быть в будущем" };
+      return { ok: true };
+    }
+    function timeValidity(v) {
+      if (v === "") return null;
+      const m = /^(\d{2}):(\d{2})$/.exec(v);
+      if (!m) return { ok: false, msg: "Формат: ЧЧ:ММ" };
+      const [, hh, mi] = m.map(Number);
+      if (hh > 23 || mi > 59) return { ok: false, msg: "00:00–23:59" };
+      return { ok: true };
+    }
+
+    // Все поля одного человека валидны?
+    function birthValid(p) {
+      const dv = dateValidity(p.date);
+      if (!dv || !dv.ok) return false;
+      if (!p.time_unknown) { const tv = timeValidity(p.time); if (!tv || !tv.ok) return false; }
+      return !!(p.place && p.place.trim());
+    }
+
+    // Анимация «генерирую…» (US-1.1)
+    function Loader({ text }) {
+      return (
+        <div className="loader">
+          <div className="ring"></div>
+          <div className="loadtext">✨ {text}</div>
+        </div>
+      );
+    }
+
+    // Переиспользуемый блок: дата / время / «время неизвестно» / город с автоподсказкой
+    function BirthInputs({ value, onChange }) {
+      const [sug, setSug] = useState([]);
+      const [activeIdx, setActiveIdx] = useState(-1);
+      const v = value;
+      const set = patch => onChange({ ...v, ...patch });
+
+      async function onPlace(t) {
+        set({ place: t }); setActiveIdx(-1);
+        if (!t.trim()) { setSug([]); return; }
+        try {
+          const r = await fetch("/api/cities?q=" + encodeURIComponent(t));
+          const d = await r.json();
+          setSug(d.items || []);
+        } catch { setSug([]); }
+      }
+      function pickCity(c) { set({ place: c.name }); setSug([]); setActiveIdx(-1); }
+      function onPlaceKey(e) {
+        if (!sug.length) return;
+        if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx(i => (i + 1) % sug.length); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx(i => (i - 1 + sug.length) % sug.length); }
+        else if (e.key === "Enter" && activeIdx >= 0) { e.preventDefault(); pickCity(sug[activeIdx]); }
+        else if (e.key === "Escape") { setSug([]); }
+      }
+
+      const dv = dateValidity(v.date);
+      const tv = v.time_unknown ? null : timeValidity(v.time);
+      const cls = x => x == null ? "" : (x.ok ? " ok" : " bad");
+
+      return (
+        <React.Fragment>
+          <label>Дата рождения</label>
+          <input className={"fld" + cls(dv)} inputMode="numeric"
+                 placeholder="ДД.ММ.ГГГГ (напр. 15.08.1990)" value={v.date}
+                 onChange={e => set({ date: maskDate(e.target.value) })} />
+          {dv && !dv.ok && <div className="hint bad">{dv.msg}</div>}
+          <div className="row">
+            <div>
+              <label>Время рождения</label>
+              <input className={"fld" + cls(tv)} inputMode="numeric"
+                     placeholder="ЧЧ:ММ (напр. 13:45)" value={v.time}
+                     disabled={v.time_unknown}
+                     onChange={e => set({ time: maskTime(e.target.value) })} />
+              {tv && !tv.ok && <div className="hint bad">{tv.msg}</div>}
+              <label className="chk">
+                <input type="checkbox" checked={v.time_unknown}
+                       onChange={e => set({ time_unknown: e.target.checked })} />
+                Время неизвестно
+              </label>
+            </div>
+            <div className="sugwrap">
+              <label>Место рождения</label>
+              <input placeholder="Город (напр. Москва)" value={v.place}
+                     autoComplete="off"
+                     onChange={e => onPlace(e.target.value)}
+                     onKeyDown={onPlaceKey}
+                     onBlur={() => setTimeout(() => setSug([]), 150)} />
+              {sug.length > 0 && (
+                <div className="sugbox">
+                  {sug.map((c, k) => (
+                    <div className={"sugitem" + (k === activeIdx ? " active" : "")} key={k}
+                         onMouseDown={() => pickCity(c)}>
+                      <span>{c.name}</span>
+                      <span className="sugcountry">{c.country}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    function Form({ onResult }) {
+      const [p, setP] = useState({ date: "", time: "", place: "", time_unknown: false });
+      const [level, setLevel] = useState("beginner");
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState("");
+
+      async function submit() {
+        setError(""); setLoading(true);
+        try {
+          const r = await fetch("/api/chart", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...p, level }),
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.detail || "Ошибка");
+          onResult(data, { ...p });
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      return (
+        <div className="card">
+          <BirthInputs value={p} onChange={setP} />
+          <label style={{ marginTop: 14 }}>Уровень трактовки</label>
+          <div className="seg">
+            <button className={level === "beginner" ? "on" : ""}
+                    onClick={() => setLevel("beginner")}>Начинающий</button>
+            <button className={level === "expert" ? "on" : ""}
+                    onClick={() => setLevel("expert")}>Эксперт</button>
+          </div>
+          {loading
+            ? <Loader text="Генерирую карту…" />
+            : <button disabled={!birthValid(p)} onClick={submit}>Построить натальную карту</button>}
+          {error && <div className="err">⚠️ {error}</div>}
+          <div className="privacy">
+            🔒 <b>Конфиденциальность.</b> Дата, время и место рождения используются
+            исключительно для построения карты в момент запроса и не сохраняются на
+            сервере. Предоставляемая интерпретация носит информационно-аналитический
+            характер и не является профессиональной рекомендацией (медицинской,
+            психологической, финансовой или юридической).
+          </div>
+        </div>
+      );
+    }
+
+    function AspectGrid({ rows }) {
+      return (
+        <div className="asp-grid">
+          {rows.map((a, k) => (
+            <div className={"asp-row h-" + a.harmony} key={k}>
+              <span className="pglyph">{a.fg}</span>
+              <span className="asp-sym">{a.glyph}</span>
+              <span className="pglyph">{a.tg}</span>
+              <span className="asp-names">{a.label}</span>
+              <span className="asp-orb">{a.orb}°</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function Result({ data, personA }) {
+      const i = data.interpretation;
+      const chartAspects = data.aspects.map(a => ({
+        fg: a.from_glyph, tg: a.to_glyph, glyph: a.glyph, harmony: a.harmony,
+        orb: a.orb, label: `${a.from} ${a.kind} ${a.to}`,
+      }));
+      return (
+        <div>
+          {data.notice && <div className="card notice">ℹ️ {data.notice}</div>}
+          <div className="card">
+            <img className="chart" src={data.image_base64} alt="Натальная карта" />
+          </div>
+          <div className="card">
+            <p className="summary">{i.summary}</p>
+            <div className="grid">
+              {data.positions.filter(p => !["Асцендент","Середина неба (MC)"].includes(p.planet)).map((p, k) => (
+                <div className="pos" key={k}>
+                  <span className="pglyph">{p.glyph}</span> <b>{p.planet}</b><br/>
+                  {p.sign} {p.element_emoji}{p.house ? ", " + p.house + " дом" : ""}{p.retrograde ? " ℞" : ""}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card sec">
+            <h3>💪 Сильные стороны</h3><p>{i.strengths}</p>
+            <h3>🌱 Зоны роста</h3><p>{i.growth}</p>
+            <h3>💗 Эмоции</h3><p>{i.emotions}</p>
+            <h3>🧭 Рекомендации</h3><p>{i.recommendations}</p>
+          </div>
+          <div className="card">
+            <h3 style={{ color: "var(--accent)", marginTop: 0 }}>
+              Разбор по планетам <span className="badge">{i.aspect_count}</span>
+            </h3>
+            <ul className="aspects">
+              {i.aspects.map((a, k) => <li key={k}>{a}</li>)}
+            </ul>
+          </div>
+          {chartAspects.length > 0 && (
+            <div className="card">
+              <h3 style={{ color: "var(--accent)", marginTop: 0 }}>
+                Аспекты карты <span className="badge">{chartAspects.length}</span>
+              </h3>
+              <AspectGrid rows={chartAspects} />
+            </div>
+          )}
+          <Compatibility personA={personA} />
+        </div>
+      );
+    }
+
+    function CompatResult({ res }) {
+      const cross = res.cross_aspects.map(a => ({
+        fg: a.a_glyph, tg: a.b_glyph, glyph: a.glyph, harmony: a.harmony,
+        orb: a.orb, label: `${a.a} (1) ${a.kind} ${a.b} (2)`,
+      }));
+      return (
+        <div style={{ marginTop: 16 }}>
+          <div className="overall">
+            <div className="overall-num">{res.overall}%</div>
+            <div className="stars">{"★".repeat(res.overall_stars) + "☆".repeat(5 - res.overall_stars)}</div>
+            <div className="sub" style={{ margin: 0 }}>общая совместимость</div>
+          </div>
+          {res.spheres.map((s, k) => (
+            <div className="sphere" key={k}>
+              <div className="sphere-head"><b>{s.title}</b><span>{s.score}% · {s.label}</span></div>
+              <div className="cbar"><div className="cfill" style={{ width: s.score + "%" }}></div></div>
+              <div className="sphere-text">{s.text}</div>
+            </div>
+          ))}
+          <h3 style={{ color: "var(--accent)" }}>
+            Ключевые межкарточные аспекты <span className="badge">{res.cross_count}</span>
+          </h3>
+          <AspectGrid rows={cross} />
+        </div>
+      );
+    }
+
+    function Compatibility({ personA }) {
+      const [open, setOpen] = useState(false);
+      const [b, setB] = useState({ date: "", time: "", place: "", time_unknown: false });
+      const [res, setRes] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState("");
+
+      async function check() {
+        setError(""); setLoading(true);
+        try {
+          const r = await fetch("/api/compatibility", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ a: personA, b }),
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.detail || "Ошибка");
+          setRes(d);
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      return (
+        <div className="card">
+          <h3 style={{ color: "var(--accent)", marginTop: 0 }}>💞 Совместимость</h3>
+          {!open
+            ? <button onClick={() => setOpen(true)}>Проверить совместимость с другим человеком</button>
+            : (
+              <React.Fragment>
+                <div className="sub" style={{ marginBottom: 6 }}>Данные второго человека:</div>
+                <BirthInputs value={b} onChange={setB} />
+                {loading
+                  ? <Loader text="Считаю совместимость…" />
+                  : <button disabled={!birthValid(b)} onClick={check}>Рассчитать совместимость</button>}
+                {error && <div className="err">⚠️ {error}</div>}
+              </React.Fragment>
+            )}
+          {res && <CompatResult res={res} />}
+        </div>
+      );
+    }
+
+    function App() {
+      const [data, setData] = useState(null);
+      const [personA, setPersonA] = useState(null);
+      return (
+        <div className="wrap">
+          <h1>✨ AstraBot</h1>
+          <div className="sub">Натальная карта и трактовка личности за пару секунд</div>
+          {!data && <Form onResult={(d, p) => { setData(d); setPersonA(p); }} />}
+          {data && <Result data={data} personA={personA} />}
+          {data && (
+            <div style={{ textAlign: "center" }}>
+              <button style={{ maxWidth: 260, margin: "0 auto" }}
+                      onClick={() => { setData(null); setPersonA(null); }}>
+                Построить ещё одну
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
