@@ -24,6 +24,8 @@ from matplotlib.patches import Wedge  # noqa: E402
 from ..data.astro import (  # noqa: E402
     HARMONIOUS_ASPECTS,
     PLANET_GLYPH,
+    PLANET_RU,
+    PLANETS,
     SIGN_ELEMENT,
     SIGN_GLYPH,
     SIGNS,
@@ -93,9 +95,9 @@ def render_png(chart: NatalChart, size_px: int = 1200) -> bytes:
         return (lon - asc_lon) + 180.0
 
     dpi = 100
-    # фигура чуть выше квадрата — снизу полоса под легенду
-    fig = plt.figure(figsize=(size_px / dpi, size_px * 1.12 / dpi), dpi=dpi, facecolor=BG)
-    ax = fig.add_axes([0.02, 0.12, 0.96, 0.86])
+    # фигура выше квадрата — снизу полоса под легенду (глифы планет + аспекты)
+    fig = plt.figure(figsize=(size_px / dpi, size_px * 1.42 / dpi), dpi=dpi, facecolor=BG)
+    ax = fig.add_axes([0.02, 0.30, 0.96, 0.685])
     ax.set_xlim(-1.28, 1.28)
     ax.set_ylim(-1.28, 1.28)
     ax.set_aspect("equal")
@@ -188,7 +190,22 @@ def render_png(chart: NatalChart, size_px: int = 1200) -> bytes:
         ax.text(lx, ly, PLANET_GLYPH[key], ha="center", va="center",
                 fontsize=12, color=AXIS_COLOR, fontweight="bold")
 
-    # 9) Легенда (расшифровка цветов аспектов и осей) — в нижней полосе
+    # 9) Легенда — в нижней полосе.
+    # 9a) Глифы планет: название + символ, сеткой 5×2
+    fig.text(0.5, 0.265, "Планеты", ha="center", va="center",
+             fontsize=13, color=HOUSE_NUM, fontweight="bold")
+    cols = 5
+    col_w = 0.86 / cols
+    for idx, key in enumerate(PLANETS):
+        row, col = idx // cols, idx % cols
+        x = 0.07 + col_w * (col + 0.5)
+        y = 0.215 - row * 0.052
+        fig.text(x, y, f"{PLANET_GLYPH[key]} {PLANET_RU[key]}", ha="center", va="center",
+                 fontsize=14, color=SIGN_GLYPH_COLOR)
+
+    # 9b) Цвета аспектов (и оси) — отдельной легендой ниже
+    fig.text(0.5, 0.105, "Аспекты", ha="center", va="center",
+             fontsize=13, color=HOUSE_NUM, fontweight="bold")
     handles = [
         Line2D([0], [0], color=ASPECT_COLOR["trine"], lw=2.4,
                label="Гармоничные аспекты (тригон, секстиль)"),
@@ -199,9 +216,9 @@ def render_png(chart: NatalChart, size_px: int = 1200) -> bytes:
     ]
     if has_houses:
         handles.append(Line2D([0], [0], color=AXIS_COLOR, lw=2.4, label="Оси Asc / MC"))
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015),
-               ncol=2, frameon=False, fontsize=10, labelcolor=SIGN_GLYPH_COLOR,
-               handlelength=1.8, columnspacing=2.4, labelspacing=0.7)
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.02),
+               ncol=2, frameon=False, fontsize=12.5, labelcolor=SIGN_GLYPH_COLOR,
+               handlelength=2.2, columnspacing=2.6, labelspacing=0.9)
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=dpi, facecolor=BG)
